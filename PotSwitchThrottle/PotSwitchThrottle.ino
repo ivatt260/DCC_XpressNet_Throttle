@@ -2,9 +2,9 @@
 
     Simple XPressNet Throttle
 
-    Version 4.0.1 December 03 2022
+    Version 4.0.1.1 June 7 2023
 
-    Copyright (C) 2010, 2014, 2016, 2022
+    Copyright (C) 2010, 2014, 2016, 2022, 2023
     John Alexander Stewart, Ottawa, Canada.
 
     This program is free software: you can redistribute it and/or modify
@@ -27,7 +27,8 @@ These are hard-coded into the throttle, so you need to keep a table of
 XpressNet Bus Addresses in use, and use a free address. These defines are
 below, near the top of the actual code.
 
-Example:  #define MY_ADDRESS 21
+Example:  #define MY_ADDRESS 7
+
 
 The Locomotive ID has to be something up to 4 digits. If you have a low
 Locomotive ID (such as 'ole Number 10) then set the address to "10". 
@@ -35,7 +36,7 @@ Do NOT prepend a zero to it, otherwise the Arduino compiler will presume
 you are entering an Octal number. I know from personal experience that this
 is hard to debug, so keep this in mind!
 
- Example: #define LOCO_ID 1045
+ Example: #define LOCO_ID 1670
 
 2) There can be output on the serial console, if you have an Arduino with
 more than 1 serial port (like a Mega 2560). If running this from the 
@@ -159,7 +160,7 @@ Slow 50/50 flashing: Track power off
 // This is our loco id, in decimal format. It will get split into bytes
 // later, for sending to the system.
 
-#define LOCO_ID 1045  // NO leading zeroes. This is the address programmed into
+#define LOCO_ID 1670  // NO leading zeroes. This is the address programmed into
                       // the decoder. A leading zero here will try and make the
                       // address as an OCTAL (base 8) address. Don't do this,
                       // as nobody in their right mind would keep track of 
@@ -170,7 +171,7 @@ Slow 50/50 flashing: Track power off
 // XpressNet address: must be in range of 1-31; must be unique. Note that some IDs
 // are currently used by default, like 2 for a LH90 or LH100 out of the box, or 30
 // for PC interface devices like the XnTCP.
-#define MY_ADDRESS 21
+#define MY_ADDRESS 7
 
 
 // We will turn off the headlight (F0) after so many milliseconds.
@@ -203,7 +204,13 @@ Slow 50/50 flashing: Track power off
 // ATmega8, maybe others will NOT have UCSR0A defined, so we just use 
 // this define to see what the serial port defines are.
 // 
-#ifndef UCSR0A
+#ifdef UCSRA
+  #define ANCIENT_BOARD
+#else
+  #define MODERN_BOARD
+#endif
+  
+#ifdef ANCIENT_BOARD
   // definitely only one serial port here.
 
   // and, do the bit-twiddling ports for this one-serial-port Arduino.
@@ -237,25 +244,28 @@ Slow 50/50 flashing: Track power off
   // ATMega168, has UCSR0A defined but only 1 serial port...
   // ATMega368, ATMega1280, ATMega2560...
   // we can put the Xpressnet bus config on another serial port
+  // by changing the following #defines to use (say) "1" instead of "0"
+  // in the name, eg, below, change UCSR0A to UCSR1A to use port 1 for XPressnet.
+  // 
   
-  #define UCSRA_PORT UCSR## 0 ##A
-  #define UBRRH_PORT UBRR## 0 ##H
-  #define UBRRL_PORT UBRR## 0 ##L
-  #define UCSRB_PORT UCSR## 0 ##B
-  #define UCSRC_PORT UCSR## 0 ##C
-  #define RXEN_PORT RXEN## 0
-  #define TXEN_PORT TXEN## 0
-  #define RXCIE_PORT RXCIE## 0
-  #define UCSZ0_PORT UCSZ## 0 ##0
-  #define UCSZ1_PORT UCSZ## 0 ##1
-  #define UCSZ2_PORT UCSZ## 0 ##2
-  #define UDR_PORT UDR## 0
-  #define RXC_PORT RXC## 0
-  #define FE_PORT FE## 0
-  #define PE_PORT UPE## 0
-  #define DOR_PORT DOR## 0
-  #define UDRE_PORT UDRE## 0
-  #define TXC_PORT TXC## 0                                                                                                                                                                                                                  
+  #define UCSRA_PORT UCSR0A
+  #define UBRRH_PORT UBRR0H
+  #define UBRRL_PORT UBRR0L
+  #define UCSRB_PORT UCSR0B
+  #define UCSRC_PORT UCSR0C
+  #define RXEN_PORT RXEN0
+  #define TXEN_PORT TXEN0
+  #define RXCIE_PORT RXCIE0
+  #define UCSZ0_PORT UCSZ00
+  #define UCSZ1_PORT UCSZ01
+  #define UCSZ2_PORT UCSZ02
+  #define UDR_PORT UDR0
+  #define RXC_PORT RXC0
+  #define FE_PORT FE0
+  #define PE_PORT UPE0
+  #define DOR_PORT DOR0
+  #define UDRE_PORT UDRE0
+  #define TXC_PORT TXC0                                                                                                                                                                                                                  
 #endif
 
 
@@ -331,11 +341,6 @@ unsigned char encodedSpeedValue = 0;
 #define STATE_SERVICE_MODE 4
 int currentState = 0;
 
- 
-
-//for debugging
-unsigned long TickTime = 0;
-unsigned int goodPkt=0;
 
 // power up initalization variables
 #define GET_COMMAND_STATION_STATUS_STEP 0
@@ -966,6 +971,8 @@ void read_pots_and_switches() {
     
   } else if (analogueReadCounter == 30) {
     // read the speed for speed changes
+    
+    // reset the counter.
     analogueReadCounter = 0;
     potValue = map(analogRead(POT_PIN),0,1023,0,decoderSpeedSteps);
    
@@ -981,9 +988,7 @@ void read_pots_and_switches() {
       lightOffAt = 0;
     }
   }
-  // debugging
-  speedControlsChanged = true;
-  potValue=30;
+
   // did the direction switch or pot change?
   if (speedControlsChanged) {
         calculateSpeedDirection();
